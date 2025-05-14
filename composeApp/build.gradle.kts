@@ -59,6 +59,8 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.semver)
+
+            implementation("me.friwi:jcefmaven:135.0.20")
         }
         desktopMain.dependencies {
 
@@ -108,6 +110,8 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.semver)
+            implementation("me.friwi:jcefmaven:135.0.20")
+
         }
     }
 }

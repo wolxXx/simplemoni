@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -31,6 +30,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -162,6 +162,7 @@ fun App() {
                             }
                             try {
                                 val response: HttpResponse = client.get(item.host)
+                                item.content = response.bodyAsText()
                                 if (null == item.requiredStatusCode) {
                                     item.ok = response.status.isSuccess()
                                 }
@@ -224,8 +225,8 @@ fun App() {
             ) {
                 Text(now.value.toString())
                 FlowRow(
-                    verticalArrangement = Arrangement.spacedBy(50.dp),
-                    horizontalArrangement = Arrangement.spacedBy(50.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
 
@@ -252,9 +253,7 @@ fun App() {
                         Column(
                             modifier = Modifier
                                 .background(backgroundColor)
-                                .width(600.dp)
                                 .border(borderWidth, borderColor)
-                                .padding(all = 10.dp)
                         ) {
                             Text(
                                 fontWeight = FontWeight.Bold,
@@ -303,11 +302,43 @@ fun App() {
 
                                     ) {
                                     Text(it.lastDuration?.let { it.toString() + "ms" } ?: "-")
-                                    Text(it.durations.average().let { it.toString() + "ms avg" })
+                                    Text(
+                                        it.durations.average().let { "%.2f".format(it) + "ms avg" })
                                     Text(it.durations.min().let { it.toString() + "ms min" })
                                     Text(it.durations.max().let { it.toString() + "ms max" })
                                 }
                             }
+                            /*  val platform = EnumPlatform.getCurrentPlatform()
+                              val os = platform.os
+
+  //Create a new CefAppBuilder instance
+                              var builder = CefAppBuilder()
+
+  //Configure the builder instance
+                              builder.setInstallDir(File("jcef-bundle")); //Default
+                              builder.setProgressHandler(ConsoleProgressHandler()); //Default
+                              builder.addJcefArgs("--disable-gpu"); //Just an example
+                              builder.getCefSettings().windowless_rendering_enabled = true; //Default - select OSR mode
+
+  //Set an app handler. Do not use CefApp.addAppHandler(...), it will break your code on MacOSX!
+                              //builder.setAppHandler(MavenCefAppHandlerAdapter());
+
+  //Build a CefApp instance using the configuration above
+                              var app = builder.build();
+                              app.*/
+
+
+                            it.content?.let {
+
+
+                                Column(
+                                    modifier = Modifier.heightIn(max = 300.dp)
+                                ) {
+                                    Text(it)
+                                }
+                            }
+
+
 
                             if (0 != it.messages.size) {
                                 Column(
