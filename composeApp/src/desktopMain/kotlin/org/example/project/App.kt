@@ -1,5 +1,6 @@
 package org.example.project
 
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +17,7 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,6 +56,7 @@ data class Item(
     var lastDuration: Long? = null,
     var durations: MutableList<Long> = mutableListOf(),
     var content: String? = null,
+    var contentId: String? = null,
 
     ) {
     fun toSerializable(): ItemSerializable {
@@ -103,12 +103,13 @@ fun App() {
     val now = mutableStateOf(Date())
     var items = mutableListOf<Item>()
     var showInitialHint = mutableStateOf(false)
+    var homeDirectory = ""
     var pathToConfigFile = ""
 
     LaunchedEffect(Unit) {
         Dispatchers.IO.let {
             launch {
-                var homeDirectory = System.getProperty("user.home")
+                homeDirectory = System.getProperty("user.home")
                 val pathToConfigDirectory = homeDirectory + "/.simplemoni"
                 pathToConfigFile = "$pathToConfigDirectory/config.json"
                 createDirectory(pathToConfigDirectory)
@@ -129,9 +130,16 @@ fun App() {
                 items = loadItems(pathToConfigFile)
             }
         }
+        val client = HttpClient(CIO) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 2000  // two seconds
+            }
+        }
         while (true) {
+            delay(500)
             now.value = Date()
-            delay(300)
+
+
             items.forEach { item ->
                 if (item.checking) {
                     return@forEach
@@ -153,13 +161,6 @@ fun App() {
                 Dispatchers.IO.let {
                     launch {
                         var duration = measureTimeMillis {
-
-
-                            val client = HttpClient(CIO) {
-                                install(HttpTimeout) {
-                                    requestTimeoutMillis = 2000  // two seconds
-                                }
-                            }
                             try {
                                 val response: HttpResponse = client.get(item.host)
                                 item.content = response.bodyAsText()
@@ -220,9 +221,7 @@ fun App() {
                     dialogText = "you find the config file under $pathToConfigFile",
                 )
             }
-            Column(
-
-            ) {
+            Column {
                 Text(now.value.toString())
                 FlowRow(
                     verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -308,37 +307,6 @@ fun App() {
                                     Text(it.durations.max().let { it.toString() + "ms max" })
                                 }
                             }
-                            /*  val platform = EnumPlatform.getCurrentPlatform()
-                              val os = platform.os
-
-  //Create a new CefAppBuilder instance
-                              var builder = CefAppBuilder()
-
-  //Configure the builder instance
-                              builder.setInstallDir(File("jcef-bundle")); //Default
-                              builder.setProgressHandler(ConsoleProgressHandler()); //Default
-                              builder.addJcefArgs("--disable-gpu"); //Just an example
-                              builder.getCefSettings().windowless_rendering_enabled = true; //Default - select OSR mode
-
-  //Set an app handler. Do not use CefApp.addAppHandler(...), it will break your code on MacOSX!
-                              //builder.setAppHandler(MavenCefAppHandlerAdapter());
-
-  //Build a CefApp instance using the configuration above
-                              var app = builder.build();
-                              app.*/
-
-
-                            it.content?.let {
-
-
-                                Column(
-                                    modifier = Modifier.heightIn(max = 300.dp)
-                                ) {
-                                    Text(it)
-                                }
-                            }
-
-
 
                             if (0 != it.messages.size) {
                                 Column(
@@ -351,10 +319,8 @@ fun App() {
                             }
                         }
                     }
-
                 }
             }
-
         }
     }
 }
