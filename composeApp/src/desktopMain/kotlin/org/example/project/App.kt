@@ -131,6 +131,7 @@ fun App() {
             }
         }
         val client = HttpClient(CIO) {
+            followRedirects = false
             install(HttpTimeout) {
                 requestTimeoutMillis = 2000  // two seconds
             }
@@ -202,6 +203,7 @@ fun App() {
                         items.forEach {
                             it.lastCheck = null
                             it.messages.clear()
+                            items = loadItems(pathToConfigFile)
                         }
                     }
                 ) {
