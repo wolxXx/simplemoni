@@ -6,11 +6,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -88,6 +90,7 @@ data class ItemSerializable(
         )
     }
 }
+
 
 
 val jsonTool = Json {
@@ -224,98 +227,114 @@ fun App() {
                 )
             }
             Column {
-                Text(now.value.toString())
-                FlowRow(
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Text(now.value.format())
+                val itemsList =
+                    items.sortedWith(compareBy({ it.ok }, { it.weight }, { it.name })).toList()
+
+                LazyVerticalStaggeredGrid(
+                    modifier = Modifier.fillMaxWidth(),
+                    columns = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells.Adaptive(
+                        500.dp
+                    ),
+                    verticalItemSpacing = 8.dp,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-
-                    items.sortedWith(compareBy({ it.ok }, { it.weight }, { it.name })).forEach {
-                        var borderWidth = 1.dp
-                        var borderColor = Color.LightGray
-                        var backgroundColor = Color.White
-                        it.lastCheck?.let { lastCheck ->
-                            if (false == it.ok) {
-                                borderWidth = 10.dp
-                                borderColor = Color.Red
-                                backgroundColor = Color.LightGray
+                    itemsList.forEach {
+                        item {
+                            var borderWidth = 1.dp
+                            var borderColor = Color.LightGray
+                            var backgroundColor = Color.White
+                            it.lastCheck?.let { lastCheck ->
+                                if (false == it.ok) {
+                                    borderWidth = 3.dp
+                                    borderColor = Color.Red
+                                    backgroundColor = Color.LightGray
+                                }
+                                if (true == it.ok) {
+                                    borderWidth = 1.dp
+                                    borderColor = Color.Green
+                                }
                             }
-                            if (true == it.ok) {
+                            if (true == it.checking) {
                                 borderWidth = 1.dp
-                                borderColor = Color.Green
-                            }
-                        }
-                        if (true == it.checking) {
-                            borderWidth = 1.dp
-                            borderColor = Color.DarkGray
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .background(backgroundColor)
-                                .border(borderWidth, borderColor)
-                        ) {
-                            Text(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                                text = it.name
-                            )
-                            Text(it.host)
-                            if (null == it.requiredStatusCode) {
-                                Text("required status code: 2xx")
-                            }
-                            it.requiredStatusCode?.let {
-                                Text("required status code: $it")
-                            }
-                            it.description?.let {
-                                Text(it)
-                            }
-                            it.lastCheck?.let {
-                                Row {
-                                    Text("last check: " + it.toString())
-                                    val now = Date()
-                                    val diff = now.time - it.time
-                                    val seconds = diff / 1000
-                                    val minutes = seconds / 60
-                                    val hours = minutes / 60
-                                    val days = hours / 24
-                                    Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
-                                }
-                            }
-                            it.errorSince?.let {
-                                Row {
-                                    Text("error since: " + it.toString())
-                                    val now = Date()
-                                    val diff = now.time - it.time
-                                    val seconds = diff / 1000
-                                    val minutes = seconds / 60
-                                    val hours = minutes / 60
-                                    val days = hours / 24
-                                    Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
-                                }
+                                borderColor = Color.DarkGray
                             }
 
-                            if (0 != it.durations.size) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
+                            Column(
+                                modifier = Modifier
+                                    .background(backgroundColor)
+                                    .border(borderWidth, borderColor)
+                                    .padding(all = 3.dp)
+                            ) {
+                                Text(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp,
+                                    text = it.name
+                                )
+                                if (false == it.ok) {
+                                    Text(it.host)
+                                    if (null == it.requiredStatusCode) {
+                                        Text("required status code: 2xx")
+                                    }
+                                    it.requiredStatusCode?.let {
+                                        Text("required status code: $it")
+                                    }
+                                    it.description?.let {
+                                        Text(it)
+                                    }
+                                }
+
+                                it.lastCheck?.let {
+                                    Row {
+                                        Text(it.format())
+                                        val now = Date()
+                                        val diff = now.time - it.time
+                                        val seconds = diff / 1000
+                                        val minutes = seconds / 60
+                                        val hours = minutes / 60
+                                        val days = hours / 24
+                                        Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
+                                    }
+                                }
+                                it.errorSince?.let {
+                                    Row {
+                                        Text("error since: " + it.format())
+                                        val now = Date()
+                                        val diff = now.time - it.time
+                                        val seconds = diff / 1000
+                                        val minutes = seconds / 60
+                                        val hours = minutes / 60
+                                        val days = hours / 24
+                                        Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
+                                    }
+                                }
+
+                                if (0 != it.durations.size) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+
+                                        ) {
+                                        Text(it.lastDuration?.let { it.toString() + "ms" } ?: "-")
+                                        Text(
+                                            it.durations.average()
+                                                .let { "%.2f".format(it) + "ms avg" })
+                                        Text(it.durations.min().let { it.toString() + "ms min" })
+                                        Text(it.durations.max().let { it.toString() + "ms max" })
+                                    }
+                                }
+
+                                if (0 != it.messages.size) {
+                                    Column(
+                                        modifier = Modifier
+                                            .heightIn(max = 150.dp)
+                                            .verticalScroll(rememberScrollState())
+
 
                                     ) {
-                                    Text(it.lastDuration?.let { it.toString() + "ms" } ?: "-")
-                                    Text(
-                                        it.durations.average().let { "%.2f".format(it) + "ms avg" })
-                                    Text(it.durations.min().let { it.toString() + "ms min" })
-                                    Text(it.durations.max().let { it.toString() + "ms max" })
-                                }
-                            }
-
-                            if (0 != it.messages.size) {
-                                Column(
-                                    modifier = Modifier.heightIn(max = 200.dp)
-                                ) {
-                                    it.messages.reversed().forEach {
-                                        Text(it)
+                                        it.messages.reversed().forEach {
+                                            Text(it)
+                                        }
                                     }
                                 }
                             }
@@ -326,7 +345,6 @@ fun App() {
         }
     }
 }
-
 
 @Composable
 fun AppAlertDialog(
