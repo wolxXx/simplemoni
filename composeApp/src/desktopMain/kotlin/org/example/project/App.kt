@@ -33,7 +33,6 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -51,6 +50,9 @@ data class Item(
     var description: String? = null,
     var messages: MutableList<String> = mutableListOf(),
     var ok: Boolean = false,
+    var active: Boolean = true,
+    var interval: Int = 20,
+    var errorInterval: Int = 5,
     var checking: Boolean = false,
     var host: String,
     var lastCheck: Date? = null,
@@ -64,6 +66,9 @@ data class Item(
     fun toSerializable(): ItemSerializable {
         return ItemSerializable(
             name = name,
+            active = active,
+            interval = interval,
+            errorInterval = errorInterval,
             weight = weight,
             requiredStatusCode = requiredStatusCode,
             description = description,
@@ -75,6 +80,9 @@ data class Item(
 @Serializable
 data class ItemSerializable(
     var name: String,
+    var active: Boolean? = true,
+    var interval: Int? = 20,
+    var errorInterval: Int? = 5,
     var weight: Int = 1000,
     var requiredStatusCode: Int? = null,
     var description: String? = null,
@@ -83,6 +91,9 @@ data class ItemSerializable(
     fun toItem(): Item {
         return Item(
             name = name,
+            active = active ?: true,
+            interval = interval ?: 20,
+            errorInterval = errorInterval ?: 5,
             weight = weight,
             requiredStatusCode = requiredStatusCode,
             description = description,
@@ -90,7 +101,6 @@ data class ItemSerializable(
         )
     }
 }
-
 
 
 val jsonTool = Json {
@@ -103,96 +113,95 @@ val jsonTool = Json {
 @Composable
 @Preview
 fun App() {
-    val now = mutableStateOf(Date())
+    val now = mutableStateOf(value = Date())
     var items = mutableListOf<Item>()
-    var showInitialHint = mutableStateOf(false)
+    val showInitialHint = mutableStateOf(value = false)
     var homeDirectory = ""
     var pathToConfigFile = ""
 
     LaunchedEffect(Unit) {
-        Dispatchers.IO.let {
-            launch {
-                homeDirectory = System.getProperty("user.home")
-                val pathToConfigDirectory = homeDirectory + "/.simplemoni"
-                pathToConfigFile = "$pathToConfigDirectory/config.json"
-                createDirectory(pathToConfigDirectory)
+        launch {
+            homeDirectory = System.getProperty("user.home")
+            val pathToConfigDirectory = "$homeDirectory/.simplemoni"
+            pathToConfigFile = "$pathToConfigDirectory/config.json"
+            createDirectory(path = pathToConfigDirectory)
 
-                if (false == fileExists(pathToConfigFile)) {
-                    items.add(
-                        Item(
-                            name = "example item",
-                            host = "https://google.com",
-                            weight = 100,
-                        )
+            if (false == fileExists(path = pathToConfigFile)) {
+                items.add(
+                    element = Item(
+                        name = "example item",
+                        host = "https://google.com",
+                        weight = 100,
                     )
+                )
 
-                    storeItems(items, pathToConfigFile)
-                    showInitialHint.value = true
-                }
-
-                items = loadItems(pathToConfigFile)
+                storeItems(items = items, pathToConfigFile = pathToConfigFile)
+                showInitialHint.value = true
             }
+
+            items = loadItems(pathToConfigFile = pathToConfigFile)
         }
-        val client = HttpClient(CIO) {
+        val client = HttpClient(engineFactory = CIO) {
             followRedirects = false
-            install(HttpTimeout) {
+            install(plugin = HttpTimeout) {
                 requestTimeoutMillis = 2000  // two seconds
             }
         }
         while (true) {
-            delay(500)
+            delay(timeMillis = 500)
             now.value = Date()
 
 
             items.forEach { item ->
+                if (!item.active) {
+                    return@forEach
+                }
                 if (item.checking) {
                     return@forEach
                 }
                 item.lastCheck?.let {
                     if (true == item.ok) {
-                        if (Date().time - it.time < 20000) {
+                        if (Date().time - it.time < (item.interval * 1000)) {
                             return@forEach
                         }
                     }
                     if (false == item.ok) {
-                        if (Date().time - it.time < 3000) {
+                        if (Date().time - it.time < (item.errorInterval * 1000)) {
                             return@forEach
                         }
                     }
 
                 }
                 item.checking = true
-                Dispatchers.IO.let {
-                    launch {
-                        var duration = measureTimeMillis {
-                            try {
-                                val response: HttpResponse = client.get(item.host)
-                                item.content = response.bodyAsText()
-                                if (null == item.requiredStatusCode) {
-                                    item.ok = response.status.isSuccess()
-                                }
-                                if (null != item.requiredStatusCode) {
-                                    item.ok = response.status.value == item.requiredStatusCode
-                                }
-                                item.errorSince = null
-                                if (false == item.ok) {
-                                    item.messages.add(response.status.toString() + " " + response.status.description)
-                                }
-                            } catch (e: Throwable) {
-                                if (null == item.errorSince) {
-                                    item.errorSince = Date()
-                                }
-                                item.messages.add(e.stackTraceToString())
-                                item.ok = false
-                                println(e.stackTraceToString())
+                launch {
+                    val duration = measureTimeMillis {
+                        try {
+                            val response: HttpResponse = client.get(urlString = item.host)
+                            item.content = response.bodyAsText()
+                            if (null == item.requiredStatusCode) {
+                                item.ok = response.status.isSuccess()
                             }
+                            if (null != item.requiredStatusCode) {
+                                item.ok = response.status.value == item.requiredStatusCode
+                            }
+                            item.errorSince = null
+                            if (false == item.ok) {
+                                item.messages.add(element = response.status.toString() + " " + response.status.description)
+                            }
+                        } catch (e: Throwable) {
+                            if (null == item.errorSince) {
+                                item.errorSince = Date()
+                            }
+                            item.messages.add(element = e.stackTraceToString())
+                            item.ok = false
+                            println(message = e.stackTraceToString())
                         }
-
-                        item.lastDuration = duration
-                        item.durations.add(duration)
-                        item.lastCheck = Date()
-                        item.checking = false
                     }
+
+                    item.lastDuration = duration
+                    item.durations.add(element = duration)
+                    item.lastCheck = Date()
+                    item.checking = false
                 }
             }
         }
@@ -206,11 +215,11 @@ fun App() {
                         items.forEach {
                             it.lastCheck = null
                             it.messages.clear()
-                            items = loadItems(pathToConfigFile)
+                            items = loadItems(pathToConfigFile = pathToConfigFile)
                         }
                     }
                 ) {
-                    Text("refresh")
+                    Text(text = "refresh")
                 }
             }
         ) {
@@ -227,19 +236,23 @@ fun App() {
                 )
             }
             Column {
-                Text(now.value.format())
+                Text(text = "now: " + now.value.format())
                 val itemsList =
-                    items.sortedWith(compareBy({ it.ok }, { it.weight }, { it.name })).toList()
+                    items.sortedWith(comparator = compareBy({ it.ok }, { it.weight }, { it.name }))
+                        .toList()
 
                 LazyVerticalStaggeredGrid(
                     modifier = Modifier.fillMaxWidth(),
                     columns = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells.Adaptive(
-                        500.dp
+                        minSize = 500.dp
                     ),
                     verticalItemSpacing = 8.dp,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
                 ) {
                     itemsList.forEach {
+                        if (!it.active) {
+                            return@forEach
+                        }
                         item {
                             var borderWidth = 1.dp
                             var borderColor = Color.LightGray
@@ -262,8 +275,8 @@ fun App() {
 
                             Column(
                                 modifier = Modifier
-                                    .background(backgroundColor)
-                                    .border(borderWidth, borderColor)
+                                    .background(color = backgroundColor)
+                                    .border(width = borderWidth, color = borderColor)
                                     .padding(all = 3.dp)
                             ) {
                                 Text(
@@ -272,28 +285,26 @@ fun App() {
                                     text = it.name
                                 )
                                 if (false == it.ok) {
-                                    Text(it.host)
+                                    Text(text = it.host)
                                     if (null == it.requiredStatusCode) {
-                                        Text("required status code: 2xx")
+                                        Text(text = "required status code: 2xx")
                                     }
                                     it.requiredStatusCode?.let {
-                                        Text("required status code: $it")
+                                        Text(text = "required status code: $it")
                                     }
                                     it.description?.let {
-                                        Text(it)
+                                        Text(text = it)
                                     }
                                 }
 
                                 it.lastCheck?.let {
                                     Row {
-                                        Text(it.format())
+                                        Text(text = "last check: " + it.format())
                                         val now = Date()
                                         val diff = now.time - it.time
                                         val seconds = diff / 1000
                                         val minutes = seconds / 60
-                                        val hours = minutes / 60
-                                        val days = hours / 24
-                                        Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
+                                        Text(text = ", ${minutes % 60}m ${seconds % 60}s ago")
                                     }
                                 }
                                 it.errorSince?.let {
@@ -454,17 +465,29 @@ fun writeFile(path: String, content: String, append: Boolean): Boolean {
 }
 
 fun loadItems(pathToConfigFile: String): MutableList<Item> {
-    var list = mutableListOf<Item>()
+    val list = mutableListOf<Item>()
     readFile(pathToConfigFile)?.let {
-        jsonTool.decodeFromString<List<ItemSerializable>>(it).forEach {
-            list.add(it.toItem())
+        try {
+            jsonTool.decodeFromString<List<ItemSerializable>>(it).forEach {
+                list.add(it.toItem())
+            }
+
+        } catch (exception: Throwable) {
+            list.clear()
+            list.add(
+                Item(
+                    description = exception.toString(),
+                    name = "config file is not ok!",
+                    host = "https://1111.comf", weight = 1000
+                )
+            )
         }
     }
     return list
 }
 
 fun storeItems(items: MutableList<Item>, pathToConfigFile: String) {
-    var list = mutableListOf<ItemSerializable>()
+    val list = mutableListOf<ItemSerializable>()
     items.forEach {
         list.add(it.toSerializable())
     }
