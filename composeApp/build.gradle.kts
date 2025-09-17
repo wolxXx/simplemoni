@@ -120,7 +120,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "simplemoni"
-            packageVersion = "1.4.0"
+            packageVersion = "1.5.0"
             linux {
                 modules(
                     "jdk.security.auth",
