@@ -1,22 +1,30 @@
-This is a Kotlin Multiplatform project targeting Web, Desktop.
+if you want this amazing tool running somewhere else than on a debian / ubuntu platform,
+please checkout the code, run the build target packageRelease<platform>
+and open a merge request.
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-    - `commonMain` is for code that’s common for all targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the
-      folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-      `iosMain` would be the right folder for such calls.
+====
 
-Learn more
-about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+json config file is under ~/.simplemoni/config.json
 
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack
-channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them
-on [GitHub](https://github.com/JetBrains/compose-multiplatform/issues).
+no worries: if not existing, it will be created for you on first run.
 
-You can open the web application by running the `:composeApp:wasmJsBrowserDevelopmentRun` Gradle
-task.
+requires an array and items with the following properties:
+
+active = boolean
+weight = higher number means more important
+interval = in seconds, how often to check if last check was ok
+errorInterval = in seconds, how often to check if last check was not ok
+requiredStatusCode if null = 200 - 300
+description = description of the check
+host = url to check, need full url
+
+    {
+        "name": "title of a card",
+        "active": true,     
+        "interval": 30,
+        "errorInterval": 5,
+        "weight": 100,
+        requiredStatusCode: 401,
+        "description": "my page",
+        "host": "https://www.google.comfoo/"
+    }
