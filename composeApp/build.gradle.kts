@@ -112,6 +112,39 @@ kotlin {
     }
 }
 
+// Application/version info generation
+val appVersion = "1.6.0"
+
+val generatedVersionDir = layout.buildDirectory.dir("generated/version/kotlin")
+
+tasks.register("generateVersionInfo") {
+    val outputDir = generatedVersionDir.get().asFile
+    outputs.dir(outputDir)
+    doLast {
+        val pkg = "org.example.project"
+        val dir = File(outputDir, pkg.replace('.', '/'))
+        dir.mkdirs()
+        File(dir, "VersionInfo.kt").writeText(
+            """
+            package $pkg
+            object VersionInfo {
+                const val PACKAGE_VERSION: String = "$appVersion"
+            }
+            """.trimIndent()
+        )
+    }
+}
+
+kotlin {
+    sourceSets {
+        val desktopMain by getting
+        desktopMain.kotlin.srcDir(generatedVersionDir)
+    }
+}
+
+tasks.named("compileKotlinDesktop").configure {
+    dependsOn("generateVersionInfo")
+}
 
 compose.desktop {
     application {
@@ -120,7 +153,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "simplemoni"
-            packageVersion = "1.6.0"
+            packageVersion = appVersion
             linux {
                 modules(
                     "jdk.security.auth",

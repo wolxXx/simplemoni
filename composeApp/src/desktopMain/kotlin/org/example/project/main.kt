@@ -9,7 +9,7 @@ import androidx.compose.ui.window.application
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "SimpleMoni",
+        title = "SimpleMoni " + VersionInfo.PACKAGE_VERSION,
         state = WindowState(
             isMinimized = false,
             width = 500.dp,

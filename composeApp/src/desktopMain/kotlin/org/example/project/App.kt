@@ -245,7 +245,11 @@ fun App() {
                 )
             }
             Column {
-                Text(text = "now: " + now.value.format())
+                Row {
+                    Text(text = "now: " + now.value.format())
+                    Text(text = " (v" + VersionInfo.PACKAGE_VERSION + ")")
+                }
+
                 val itemsList =
                     items.sortedWith(comparator = compareBy({ it.ok }, { it.weight }, { it.name }))
                         .toList()
