@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -53,6 +54,7 @@ data class Item(
     var active: Boolean = true,
     var interval: Int = 20,
     var errorInterval: Int = 5,
+    var timeOut: Int = 2,
     var checking: Boolean = false,
     var host: String,
     var lastCheck: Date? = null,
@@ -69,6 +71,7 @@ data class Item(
             active = active,
             interval = interval,
             errorInterval = errorInterval,
+            timeOut = timeOut,
             weight = weight,
             requiredStatusCode = requiredStatusCode,
             description = description,
@@ -83,6 +86,7 @@ data class ItemSerializable(
     var active: Boolean? = true,
     var interval: Int? = 20,
     var errorInterval: Int? = 5,
+    var timeOut: Int? = 2,
     var weight: Int = 1000,
     var requiredStatusCode: Int? = null,
     var description: String? = null,
@@ -94,6 +98,7 @@ data class ItemSerializable(
             active = active ?: true,
             interval = interval ?: 20,
             errorInterval = errorInterval ?: 5,
+            timeOut = timeOut ?: 2,
             weight = weight,
             requiredStatusCode = requiredStatusCode,
             description = description,
@@ -176,7 +181,11 @@ fun App() {
                 launch {
                     val duration = measureTimeMillis {
                         try {
-                            val response: HttpResponse = client.get(urlString = item.host)
+                            val response: HttpResponse = client.get(urlString = item.host) {
+                                timeout {
+                                    requestTimeoutMillis = (item.timeOut * 1000).toLong()
+                                }
+                            }
                             item.content = response.bodyAsText()
                             if (null == item.requiredStatusCode) {
                                 item.ok = response.status.isSuccess()
@@ -326,7 +335,8 @@ fun App() {
                                         verticalAlignment = Alignment.CenterVertically,
 
                                         ) {
-                                        Text(it.lastDuration?.let { it.toString() + "ms" } ?: "-")
+                                        Text(it.lastDuration?.let { it.toString() + "ms last" }
+                                            ?: "")
                                         Text(
                                             it.durations.average()
                                                 .let { "%.2f".format(it) + "ms avg" })
