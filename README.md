@@ -14,6 +14,7 @@ active = boolean
 weight = higher number means more important
 interval = in seconds, how often to check if last check was ok
 errorInterval = in seconds, how often to check if last check was not ok
+timeout = in seconds, how long to wait for a response
 requiredStatusCode if null = 200 - 300
 description = description of the check
 host = url to check, need full url
@@ -23,6 +24,7 @@ host = url to check, need full url
         "active": true,     
         "interval": 30,
         "errorInterval": 5,
+        "timeout": 2,
         "weight": 100,
         requiredStatusCode: 401,
         "description": "my page",
