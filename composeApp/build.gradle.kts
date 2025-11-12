@@ -113,7 +113,7 @@ kotlin {
 }
 
 // Application/version info generation
-val appVersion = "1.6.0"
+val appVersion = "1.7.0"
 
 val generatedVersionDir = layout.buildDirectory.dir("generated/version/kotlin")
 

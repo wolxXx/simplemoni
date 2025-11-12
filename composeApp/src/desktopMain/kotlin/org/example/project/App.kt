@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
@@ -26,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
@@ -41,6 +46,8 @@ import kotlinx.serialization.json.Json
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import java.io.File
 import java.util.Date
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.system.measureTimeMillis
 
 
@@ -114,25 +121,30 @@ val jsonTool = Json {
     ignoreUnknownKeys = true
 }
 
+class AppViewModel : ViewModel() {
+    val now = mutableStateOf(value = Date())
+    var items = mutableListOf<Item>()
+    val showInitialHint = mutableStateOf(value = false)
+    val showMinimalized = mutableStateOf(value = false)
+    val errorMessageAmount = mutableStateOf(value = 3)
+    var homeDirectory = ""
+    var pathToConfigFile = ""
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 @Preview
 fun App() {
-    val now = mutableStateOf(value = Date())
-    var items = mutableListOf<Item>()
-    val showInitialHint = mutableStateOf(value = false)
-    var homeDirectory = ""
-    var pathToConfigFile = ""
-
+    val viewModel = AppViewModel()
     LaunchedEffect(Unit) {
         launch {
-            homeDirectory = System.getProperty("user.home")
-            val pathToConfigDirectory = "$homeDirectory/.simplemoni"
-            pathToConfigFile = "$pathToConfigDirectory/config.json"
+            viewModel.homeDirectory = System.getProperty("user.home")
+            val pathToConfigDirectory = "${viewModel.homeDirectory}/.simplemoni"
+            viewModel.pathToConfigFile = "$pathToConfigDirectory/config.json"
             createDirectory(path = pathToConfigDirectory)
 
-            if (false == fileExists(path = pathToConfigFile)) {
-                items.add(
+            if (false == fileExists(path = viewModel.pathToConfigFile)) {
+                viewModel.items.add(
                     element = Item(
                         name = "example item",
                         host = "https://google.com",
@@ -140,11 +152,11 @@ fun App() {
                     )
                 )
 
-                storeItems(items = items, pathToConfigFile = pathToConfigFile)
-                showInitialHint.value = true
+                storeItems(items = viewModel.items, pathToConfigFile = viewModel.pathToConfigFile)
+                viewModel.showInitialHint.value = true
             }
 
-            items = loadItems(pathToConfigFile = pathToConfigFile)
+            viewModel.items = loadItems(pathToConfigFile = viewModel.pathToConfigFile)
         }
         val client = HttpClient(engineFactory = CIO) {
             followRedirects = false
@@ -154,10 +166,10 @@ fun App() {
         }
         while (true) {
             delay(timeMillis = 500)
-            now.value = Date()
+            viewModel.now.value = Date()
 
 
-            items.forEach { item ->
+            viewModel.items.forEach { item ->
                 if (!item.active) {
                     return@forEach
                 }
@@ -210,6 +222,7 @@ fun App() {
                     item.lastDuration = duration
                     item.durations.add(element = duration)
                     item.lastCheck = Date()
+                    delay(300)
                     item.checking = false
                 }
             }
@@ -218,46 +231,89 @@ fun App() {
     MaterialTheme {
         Scaffold(
             modifier = Modifier.padding(all = 10.dp),
-            floatingActionButton = {
-                Button(
-                    onClick = {
-                        items.forEach {
-                            it.lastCheck = null
-                            it.messages.clear()
-                            items = loadItems(pathToConfigFile = pathToConfigFile)
-                        }
-                    }
-                ) {
-                    Text(text = "refresh")
-                }
-            }
         ) {
-            if (true == showInitialHint.value) {
+            if (true == viewModel.showInitialHint.value) {
                 AppAlertDialog(
                     onDismissRequest = {
-                        showInitialHint.value = false
+                        viewModel.showInitialHint.value = false
                     },
                     onConfirmation = {
-                        showInitialHint.value = false
+                        viewModel.showInitialHint.value = false
                     },
                     dialogTitle = "created initial config file",
-                    dialogText = "you find the config file under $pathToConfigFile",
+                    dialogText = "you find the config file under $viewModel.pathToConfigFile",
                 )
             }
             Column {
-                Row {
-                    Text(text = "now: " + now.value.format())
-                    Text(text = " (v" + VersionInfo.PACKAGE_VERSION + ")")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "now: " + viewModel.now.value.format())
+                    Text(text = ", v" + VersionInfo.PACKAGE_VERSION)
+                    Text(text = ", shows " + viewModel.errorMessageAmount.value + " errors")
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.showMinimalized.value = !viewModel.showMinimalized.value
+                        }
+                    ) {
+                        if (viewModel.showMinimalized.value) {
+                            Text("more info")
+                        }
+                        if (!viewModel.showMinimalized.value) {
+                            Text("less info")
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.errorMessageAmount.value =
+                                max(viewModel.errorMessageAmount.value - 1, 0)
+                            println(viewModel.errorMessageAmount.value)
+                        }
+                    ) {
+                        Text("less errors")
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.errorMessageAmount.value =
+                                min(viewModel.errorMessageAmount.value + 1, 10)
+                            println(viewModel.errorMessageAmount.value)
+                        }
+                    ) {
+                        Text("more errors")
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.items.forEach {
+                                it.lastCheck = null
+                                it.messages.clear()
+                                viewModel.items =
+                                    loadItems(pathToConfigFile = viewModel.pathToConfigFile)
+                            }
+                        }
+                    ) {
+                        Text(text = "refresh")
+                    }
+
                 }
 
                 val itemsList =
-                    items.sortedWith(comparator = compareBy({ it.ok }, { it.weight }, { it.name }))
+                    viewModel.items.sortedWith(
+                        comparator = compareBy(
+                            { it.ok },
+                            { it.weight },
+                            { it.name })
+                    )
                         .toList()
 
                 LazyVerticalStaggeredGrid(
                     modifier = Modifier.fillMaxWidth(),
-                    columns = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells.Adaptive(
-                        minSize = 500.dp
+                    columns = StaggeredGridCells.Adaptive(
+                        minSize = if (viewModel.showMinimalized.value) 200.dp else 500.dp
                     ),
                     verticalItemSpacing = 8.dp,
                     horizontalArrangement = Arrangement.spacedBy(space = 8.dp),
@@ -268,20 +324,22 @@ fun App() {
                         }
                         item {
                             var borderWidth = 1.dp
+                            var borderRadius = 10.dp
                             var borderColor = Color.LightGray
                             var backgroundColor = Color.White
-                            it.lastCheck?.let { lastCheck ->
+                            it.lastCheck?.let { _ ->
                                 if (false == it.ok) {
                                     borderWidth = 3.dp
                                     borderColor = Color.Red
                                     backgroundColor = Color.LightGray
                                 }
                                 if (true == it.ok) {
-                                    borderWidth = 1.dp
+                                    borderWidth = 2.dp
                                     borderColor = Color.Green
                                 }
                             }
                             if (true == it.checking) {
+                                borderRadius = 20.dp
                                 borderWidth = 1.dp
                                 borderColor = Color.DarkGray
                             }
@@ -289,35 +347,57 @@ fun App() {
                             Column(
                                 modifier = Modifier
                                     .background(color = backgroundColor)
-                                    .border(width = borderWidth, color = borderColor)
+                                    .border(
+                                        width = borderWidth,
+                                        color = borderColor,
+                                        shape = RoundedCornerShape(
+                                            borderRadius,
+                                        )
+                                    )
                                     .padding(all = 3.dp)
                             ) {
-                                Text(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp,
-                                    text = it.name
-                                )
-                                if (false == it.ok) {
-                                    Text(text = it.host)
-                                    if (null == it.requiredStatusCode) {
-                                        Text(text = "required status code: 2xx")
+                                Row {
+                                    Text(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp,
+                                        text = it.name
+                                    )
+                                    if (!viewModel.showMinimalized.value) {
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text("every " + it.interval + "|" + it.errorInterval + "s")
                                     }
-                                    it.requiredStatusCode?.let {
-                                        Text(text = "required status code: $it")
-                                    }
-                                    it.description?.let {
-                                        Text(text = it)
+                                }
+                                if (viewModel.showMinimalized.value) {
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text("every " + it.interval + "|" + it.errorInterval + "s")
+                                }
+                                if (!viewModel.showMinimalized.value) {
+                                    if (false == it.ok) {
+                                        Text(text = it.host)
+                                        if (null == it.requiredStatusCode) {
+                                            Text(text = "required status code: 2xx")
+                                        }
+                                        it.requiredStatusCode?.let {
+                                            Text(text = "required status code: $it")
+                                        }
+                                        it.description?.let {
+                                            Text(text = it)
+                                        }
                                     }
                                 }
 
-                                it.lastCheck?.let {
-                                    Row {
-                                        Text(text = "last check: " + it.format())
-                                        val now = Date()
-                                        val diff = now.time - it.time
-                                        val seconds = diff / 1000
-                                        val minutes = seconds / 60
-                                        Text(text = ", ${minutes % 60}m ${seconds % 60}s ago")
+                                if (!viewModel.showMinimalized.value) {
+
+
+                                    it.lastCheck?.let {
+                                        Row {
+                                            Text(text = "last check: " + it.format())
+                                            val now = Date()
+                                            val diff = now.time - it.time
+                                            val seconds = diff / 1000
+                                            val minutes = seconds / 60
+                                            Text(text = ", ${minutes % 60}m ${seconds % 60}s ago")
+                                        }
                                     }
                                 }
                                 it.errorSince?.let {
@@ -332,33 +412,42 @@ fun App() {
                                         Text(" ${days}d ${hours % 24}h ${minutes % 60}m ${seconds % 60}s")
                                     }
                                 }
+                                if (!viewModel.showMinimalized.value) {
+                                    if (0 != it.durations.size) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
 
-                                if (0 != it.durations.size) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-
-                                        ) {
-                                        Text(it.lastDuration?.let { it.toString() + "ms last" }
-                                            ?: "")
-                                        Text(
-                                            it.durations.average()
-                                                .let { "%.2f".format(it) + "ms avg" })
-                                        Text(it.durations.min().let { it.toString() + "ms min" })
-                                        Text(it.durations.max().let { it.toString() + "ms max" })
+                                            ) {
+                                            Text(it.lastDuration?.let { it.toString() + "ms last" }
+                                                ?: "")
+                                            Text(
+                                                it.durations.average()
+                                                    .let { "%.2f".format(it) + "ms avg" })
+                                            Text(
+                                                it.durations.min().let { it.toString() + "ms min" })
+                                            Text(
+                                                it.durations.max().let { it.toString() + "ms max" })
+                                        }
                                     }
                                 }
+                                if (!viewModel.showMinimalized.value) {
+                                    if (0 != it.messages.size) {
+                                        Column(
+                                            modifier = Modifier
+                                                .heightIn(max = 150.dp)
+                                                .verticalScroll(rememberScrollState())
 
-                                if (0 != it.messages.size) {
-                                    Column(
-                                        modifier = Modifier
-                                            .heightIn(max = 150.dp)
-                                            .verticalScroll(rememberScrollState())
 
-
-                                    ) {
-                                        it.messages.reversed().forEach {
-                                            Text(it)
+                                        ) {
+                                            it.messages.reversed().slice(
+                                                0..<min(
+                                                    viewModel.errorMessageAmount.value,
+                                                    it.messages.size
+                                                )
+                                            ).forEach {
+                                                Text(it)
+                                            }
                                         }
                                     }
                                 }
