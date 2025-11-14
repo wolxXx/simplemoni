@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -246,59 +247,76 @@ fun App() {
             }
             Column {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "now: " + viewModel.now.value.format())
-                    Text(text = ", v" + VersionInfo.PACKAGE_VERSION)
-                    Text(text = ", shows " + viewModel.errorMessageAmount.value + " errors")
-                    Spacer(modifier = Modifier.width(20.dp))
+                    modifier = Modifier.fillMaxWidth()
+                )
+                {
+                    FlowRow(
+                        modifier = Modifier.weight(2f),
+                        verticalArrangement = Arrangement.spacedBy(
+                            12.dp,
+                            Alignment.CenterVertically
+                        )
 
-                    Button(
-                        onClick = {
-                            viewModel.showMinimalized.value = !viewModel.showMinimalized.value
-                        }
                     ) {
-                        if (viewModel.showMinimalized.value) {
-                            Text("more info")
-                        }
-                        if (!viewModel.showMinimalized.value) {
-                            Text("less info")
-                        }
+                        Text(text = "now: " + viewModel.now.value.format())
+                        Text(text = ", v" + VersionInfo.PACKAGE_VERSION)
+                        Text(text = ", shows " + viewModel.errorMessageAmount.value + " errors")
                     }
-
-                    Button(
-                        onClick = {
-                            viewModel.errorMessageAmount.value =
-                                max(viewModel.errorMessageAmount.value - 1, 0)
-                            println(viewModel.errorMessageAmount.value)
-                        }
+                    FlowRow(
+                        verticalArrangement = Arrangement.spacedBy(
+                            12.dp,
+                            Alignment.CenterVertically
+                        ),
+                        modifier = Modifier.weight(2f),
                     ) {
-                        Text("less errors")
-                    }
 
-                    Button(
-                        onClick = {
-                            viewModel.errorMessageAmount.value =
-                                min(viewModel.errorMessageAmount.value + 1, 10)
-                            println(viewModel.errorMessageAmount.value)
-                        }
-                    ) {
-                        Text("more errors")
-                    }
-
-                    Button(
-                        onClick = {
-                            viewModel.items.forEach {
-                                it.lastCheck = null
-                                it.messages.clear()
-                                viewModel.items =
-                                    loadItems(pathToConfigFile = viewModel.pathToConfigFile)
+                        Button(
+                            onClick = {
+                                viewModel.showMinimalized.value = !viewModel.showMinimalized.value
+                            }
+                        ) {
+                            if (viewModel.showMinimalized.value) {
+                                Text("more info")
+                            }
+                            if (!viewModel.showMinimalized.value) {
+                                Text("less info")
                             }
                         }
-                    ) {
-                        Text(text = "refresh")
-                    }
 
+                        Button(
+                            onClick = {
+                                viewModel.errorMessageAmount.value =
+                                    max(viewModel.errorMessageAmount.value - 1, 0)
+                                println(viewModel.errorMessageAmount.value)
+                            }
+                        ) {
+                            Text("less errors")
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.errorMessageAmount.value =
+                                    min(viewModel.errorMessageAmount.value + 1, 10)
+                                println(viewModel.errorMessageAmount.value)
+                            }
+                        ) {
+                            Text("more errors")
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.items.forEach {
+                                    it.lastCheck = null
+                                    it.messages.clear()
+                                    viewModel.items =
+                                        loadItems(pathToConfigFile = viewModel.pathToConfigFile)
+                                }
+                            }
+                        ) {
+                            Text(text = "refresh")
+                        }
+
+                    }
                 }
 
                 val itemsList =
